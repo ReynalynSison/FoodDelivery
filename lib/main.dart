@@ -3,20 +3,35 @@ import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-// Ensure these filenames match your actual files!
 import 'homepage.dart';
 import 'signup.dart';
+import 'cart/cart_provider.dart';
+import 'models/order.dart';
+import 'providers/order_provider.dart';
+import 'providers/theme_provider.dart';
+import 'theme/app_themes.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Hive.initFlutter();
+  Hive.registerAdapter(OrderStatusAdapter());
+  Hive.registerAdapter(OrderAdapter());
   await Hive.openBox("database");
-  runApp(const MyApp());
+  await Hive.openBox<Order>('orders');
+
+  // Load persisted brightness BEFORE first frame — prevents flicker
+  final themeProvider = await ThemeProvider.load();
+
+  runApp(MyApp(themeProvider: themeProvider));
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final ThemeProvider themeProvider;
+  const MyApp({super.key, required this.themeProvider});
 
   @override
   State<MyApp> createState() => _State();
@@ -26,12 +41,25 @@ class _State extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     final box = Hive.box("database");
-    return CupertinoApp(
-        theme: const CupertinoThemeData(
-            primaryColor: CupertinoColors.label,
-            brightness: Brightness.dark),
-        debugShowCheckedModeBanner: false,
-        home: (box.get("username") != null) ? const LoginPage() : const SignupPage());
+    return MultiProvider(
+      providers: [
+        // ThemeProvider is pre-loaded; supply the existing instance directly
+        ChangeNotifierProvider<ThemeProvider>.value(value: widget.themeProvider),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider(create: (_) => OrderProvider()),
+      ],
+      child: Consumer<ThemeProvider>(
+        builder: (_, themeProvider, __) => CupertinoApp(
+          theme: themeProvider.isDark
+              ? AppThemes.darkTheme
+              : AppThemes.lightTheme,
+          debugShowCheckedModeBanner: false,
+          home: (box.get("username") != null)
+              ? const LoginPage()
+              : const SignupPage(),
+        ),
+      ),
+    );
   }
 }
 
