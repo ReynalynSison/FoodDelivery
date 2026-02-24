@@ -5,13 +5,13 @@ import 'package:latlong2/latlong.dart';
 /// Default delivery scenario locations — Metro Manila, Philippines.
 class DeliveryLocations {
   /// Restaurant pin — Rizal Park area, Manila
-  static const LatLng restaurantLocation   = LatLng(14.5831, 120.9794);
+  static const LatLng restaurantLocation   = LatLng(15.093534690707086, 120.76943059939434);
 
   /// Fallback customer location — BGC, Taguig (used only when no pin saved)
   static const LatLng customerLocation     = LatLng(14.5547, 121.0514);
 
   /// Rider always departs from the restaurant
-  static const LatLng riderInitialLocation = LatLng(14.5831, 120.9794);
+  static const LatLng riderInitialLocation = LatLng(15.093534690707086, 120.76943059939434);
 }
 
 class MapView extends StatefulWidget {
