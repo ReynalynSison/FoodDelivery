@@ -4,6 +4,7 @@ import 'package:flutter/material.dart'
 import 'package:provider/provider.dart';
 import '../cart/cart_page.dart';
 import '../cart/cart_provider.dart';
+import '../core/database/location_service.dart';
 import '../models/food_item.dart';
 import '../providers/theme_provider.dart';
 import 'food_data.dart' hide FoodItem, FoodCategory, FoodAddon, Restaurant;
@@ -99,6 +100,31 @@ class FoodListPageState extends State<FoodListPage> {
     final isDark = context.watch<ThemeProvider>().isDark;
     final items = _filteredItems;
 
+    // Read saved delivery address for the top bar location label
+    final locationService = LocationService();
+    final savedAddress = locationService.getSavedAddress();
+    String locationLabel = 'Not set';
+    if (savedAddress != null && savedAddress.isNotEmpty) {
+      try {
+        // Nominatim address format: "Place, Municipality, Province, Region, Country"
+        // Extract municipality (2nd-to-last or 3rd-to-last part) and country (last part)
+        final parts = savedAddress.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+        if (parts.length >= 2) {
+          final country = parts.last;
+          // Try to find a meaningful municipality — skip region/province, pick ~3rd from end
+          final municipality = parts.length >= 4 ? parts[parts.length - 4] : parts[parts.length - 2];
+          locationLabel = '$municipality, $country';
+        } else if (parts.isNotEmpty) {
+          locationLabel = parts.first;
+        }
+      } catch (e) {
+        // Fallback to truncated full address if parsing fails
+        locationLabel = savedAddress.length > 30
+            ? '${savedAddress.substring(0, 27)}...'
+            : savedAddress;
+      }
+    }
+
     return CupertinoPageScaffold(
       backgroundColor: _kBg(isDark),
       child: SafeArea(
@@ -121,6 +147,7 @@ class FoodListPageState extends State<FoodListPage> {
                     )
                   : _TopBar(
                       isDark: isDark,
+                      locationLabel: locationLabel,
                       onSearchTap: () => setState(() => _searchActive = true),
                     ),
             ),
@@ -418,7 +445,8 @@ class _SearchBar extends StatelessWidget {
 class _TopBar extends StatelessWidget {
   final VoidCallback onSearchTap;
   final bool isDark;
-  const _TopBar({required this.onSearchTap, required this.isDark});
+  final String locationLabel;
+  const _TopBar({required this.onSearchTap, required this.isDark, required this.locationLabel});
 
   @override
   Widget build(BuildContext context) {
@@ -465,7 +493,7 @@ class _TopBar extends StatelessWidget {
                     Icon(CupertinoIcons.location_fill,
                         size: 11, color: _kGrey(isDark)),
                     const SizedBox(width: 3),
-                    Text('New York, USA',
+                    Text(locationLabel,
                         style: TextStyle(
                             fontSize: 11,
                             color: _kGrey(isDark),
@@ -822,96 +850,98 @@ class _FoodGridCard extends StatelessWidget {
             ),
 
             // ── Info ──────────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: _kDark(isDark),
-                      letterSpacing: -0.2,
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _kDark(isDark),
+                        letterSpacing: -0.2,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Text(
-                        '₱${item.price.toStringAsFixed(0)}',
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: _kAccent,
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Text(
+                          '₱${item.price.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: _kAccent,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      const Icon(CupertinoIcons.star_fill,
-                          size: 12, color: Color(0xFFFFC107)),
-                      const SizedBox(width: 3),
-                      Text(
-                        item.rating.toStringAsFixed(1),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: _kDark(isDark),
+                        const Spacer(),
+                        const Icon(CupertinoIcons.star_fill,
+                            size: 12, color: Color(0xFFFFC107)),
+                        const SizedBox(width: 3),
+                        Text(
+                          item.rating.toStringAsFixed(1),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _kDark(isDark),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  qty == 0
-                      ? GestureDetector(
-                          onTap: () => cart.addItem(item),
-                          child: Container(
+                      ],
+                    ),
+                    const Spacer(),
+                    qty == 0
+                        ? GestureDetector(
+                            onTap: () => cart.addItem(item),
+                            child: Container(
+                              width: double.infinity,
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _kAccent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Center(
+                                child: Text(
+                                  'Add to Cart',
+                                  style: TextStyle(
+                                    color: CupertinoColors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : Container(
                             width: double.infinity,
-                            padding:
-                                const EdgeInsets.symmetric(vertical: 8),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
-                              color: _kAccent,
+                              color: _kLightBg(isDark),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Center(
-                              child: Text(
-                                'Add to Cart',
-                                style: TextStyle(
-                                  color: CupertinoColors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(CupertinoIcons.check_mark_circled_solid,
+                                    size: 14, color: _kAccent),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'In Cart ($qty)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    color: _kAccent,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
-                        )
-                      : Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: BoxDecoration(
-                            color: _kLightBg(isDark),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(CupertinoIcons.check_mark_circled_solid,
-                                  size: 14, color: _kAccent),
-                              const SizedBox(width: 5),
-                              Text(
-                                'In Cart ($qty)',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: _kAccent,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

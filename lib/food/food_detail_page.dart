@@ -168,7 +168,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
         actions: [
           CupertinoDialogAction(
             isDefaultAction: true,
-            child: const Text('Track Order'),
+            child: const Text(
+              'Track Order',
+              style: TextStyle(color: Color(0xFFFF6B35)), // Food Tiger orange
+            ),
             onPressed: () {
               Navigator.of(ctx).pop();
               if (!context.mounted) return;
@@ -231,11 +234,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                               const SizedBox(width: 12),
                               Text(
                                 '₱${item.price.toStringAsFixed(0)}',
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
-                                  color: CupertinoColors.systemBlue
-                                      .resolveFrom(context),
+                                  color: Color(0xFFFF6B35), // Food Tiger orange
                                 ),
                               ),
                             ],
@@ -398,13 +400,13 @@ class RestaurantInfoCard extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: CupertinoColors.systemBlue.withValues(alpha: 0.12),
+              color: const Color(0xFFFF6B35).withValues(alpha: 0.12), // Food Tiger orange
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(
               CupertinoIcons.building_2_fill,
               size: 22,
-              color: CupertinoColors.systemBlue,
+              color: Color(0xFFFF6B35), // Food Tiger orange
             ),
           ),
           const SizedBox(width: 12),
@@ -616,12 +618,12 @@ class _AddonTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: selected
-              ? CupertinoColors.systemBlue.withValues(alpha: 0.08)
+              ? const Color(0xFFFF6B35).withValues(alpha: 0.08) // Food Tiger orange
               : CupertinoColors.tertiarySystemBackground.resolveFrom(context),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected
-                ? CupertinoColors.systemBlue.resolveFrom(context)
+                ? const Color(0xFFFF6B35) // Food Tiger orange
                 : CupertinoColors.separator.resolveFrom(context),
             width: selected ? 1.5 : 0.5,
           ),
@@ -634,7 +636,7 @@ class _AddonTile extends StatelessWidget {
                   : CupertinoIcons.circle,
               size: 20,
               color: selected
-                  ? CupertinoColors.systemBlue.resolveFrom(context)
+                  ? const Color(0xFFFF6B35) // Food Tiger orange
                   : CupertinoColors.secondaryLabel.resolveFrom(context),
             ),
             const SizedBox(width: 10),
@@ -650,10 +652,10 @@ class _AddonTile extends StatelessWidget {
             ),
             Text(
               '+₱${addon.extraPrice.toStringAsFixed(0)}',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: CupertinoColors.systemBlue.resolveFrom(context),
+                color: Color(0xFFFF6B35), // Food Tiger orange
               ),
             ),
           ],
@@ -721,7 +723,7 @@ class _QtyBtn extends StatelessWidget {
         height: 38,
         decoration: BoxDecoration(
           color: enabled
-              ? CupertinoColors.systemBlue
+              ? const Color(0xFFFF6B35) // Food Tiger orange
               : CupertinoColors.systemGrey4.resolveFrom(context),
           shape: BoxShape.circle,
         ),
@@ -826,29 +828,26 @@ class _StickyBottomBar extends StatelessWidget {
                     height: 48,
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: CupertinoColors.systemBlue
-                            .resolveFrom(context),
+                        color: const Color(0xFFFF6B35), // Food Tiger orange
                         width: 1.5,
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
+                      children: const [
                         Icon(
                           CupertinoIcons.bag_badge_plus,
                           size: 18,
-                          color: CupertinoColors.systemBlue
-                              .resolveFrom(context),
+                          color: Color(0xFFFF6B35), // Food Tiger orange
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         Text(
                           'Add to Cart',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: CupertinoColors.systemBlue
-                                .resolveFrom(context),
+                            color: Color(0xFFFF6B35), // Food Tiger orange
                           ),
                         ),
                       ],
@@ -865,21 +864,21 @@ class _StickyBottomBar extends StatelessWidget {
                   child: Container(
                     height: 48,
                     decoration: BoxDecoration(
-                      color: CupertinoColors.systemBlue.resolveFrom(context),
+                      color: const Color(0xFFFF6B35), // Food Tiger orange
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
+                      children: const [
+                        Icon(
                           CupertinoIcons.bolt_fill,
                           size: 16,
                           color: CupertinoColors.white,
                         ),
-                        const SizedBox(width: 6),
+                        SizedBox(width: 6),
                         Text(
                           'Order Now',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: CupertinoColors.white,

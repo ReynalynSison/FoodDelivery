@@ -135,7 +135,10 @@ class _TrackingPageState extends State<TrackingPage> {
   }
 
   void _generateRoute() {
-    if (_pinnedLocation == null) return;
+    if (_pinnedLocation == null) {
+      debugPrint('[TrackingPage] Cannot generate route: no delivery location set');
+      return;
+    }
     final waypoints = _pathfinder.findRoute(
       DeliveryLocations.riderInitialLocation, _pinnedLocation!);
     setState(() {
@@ -146,7 +149,10 @@ class _TrackingPageState extends State<TrackingPage> {
   }
 
   void _startRiderMovement(OrderProvider orderProvider) {
-    if (_movementStarted || _route.isEmpty || _trackedOrderId == null) return;
+    if (_movementStarted || _route.isEmpty || _trackedOrderId == null) {
+      debugPrint('[TrackingPage] Cannot start rider: movementStarted=$_movementStarted, route=${_route.length}, orderId=$_trackedOrderId');
+      return;
+    }
     _movementStarted = true;
     _movementTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) async {
       final next = _currentRouteIndex + 1;

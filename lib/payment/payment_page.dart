@@ -60,8 +60,11 @@ class _PaymentPageState extends State<PaymentPage> {
       debugPrint('WebView controller created, starting polling');
       _startPolling();
     } catch (e) {
+      // Cancel any existing polling timer on error
+      _pollingTimer?.cancel();
       setState(() {
         _isLoading = false;
+        _isPolling = false;
         _statusMessage = 'Error: $e';
       });
 

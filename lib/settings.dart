@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import 'core/database/location_service.dart';
+import 'map/map_view.dart';
 import 'providers/theme_provider.dart';
 
 class Settings extends StatefulWidget {
@@ -504,17 +505,24 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                   userAgentPackageName: 'com.example.faceid',
                   maxZoom: 19,
                 ),
-                if (_pinned != null)
-                  MarkerLayer(
-                    markers: [
+                MarkerLayer(
+                  markers: [
+                    // Store marker — Holy Cross College, Candaba, Pampanga
+                    Marker(
+                      point: DeliveryLocations.storeLocation,
+                      width: 90,
+                      height: 70,
+                      child: _buildStoreMarker(),
+                    ),
+                    if (_pinned != null)
                       Marker(
                         point: _pinned!,
                         width: 70,
                         height: 62,
                         child: _buildPin(),
                       ),
-                    ],
-                  ),
+                  ],
+                ),
               ],
             ),
 
@@ -794,47 +802,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                           'Change location',
                           style: TextStyle(
                             fontSize: 14,
-                            color: CupertinoColors.systemBlue
-                                .resolveFrom(context),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            // â”€â”€ Empty state hint (no pin yet, suggestions closed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            if (_pinned == null && !_showSuggestions)
-              Positioned(
-                bottom: 28,
-                left: 24,
-                right: 24,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: bg.withValues(alpha: 0.93),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: CupertinoColors.black.withValues(alpha: 0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(CupertinoIcons.search,
-                          size: 16, color: secondaryLabel),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Search for your delivery address above.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: secondaryLabel,
+                            color: const Color(0xFFFF6B35), // Food Tiger orange
                           ),
                         ),
                       ),
@@ -857,7 +825,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: CupertinoColors.systemBlue,
+            color: const Color(0xFFFF6B35), // Food Tiger orange
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -875,9 +843,49 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
           width: 3,
           height: 8,
           decoration: const BoxDecoration(
-            color: CupertinoColors.systemBlue,
+            color: Color(0xFFFF6B35), // Food Tiger orange
             borderRadius: BorderRadius.vertical(
               bottom: Radius.circular(2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStoreMarker() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFFF6B35),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF6B35).withValues(alpha: 0.5),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(6),
+          child: const Text('🐯', style: TextStyle(fontSize: 20)),
+        ),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6B35),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Food Tiger',
+            style: TextStyle(
+              color: CupertinoColors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
             ),
           ),
         ),

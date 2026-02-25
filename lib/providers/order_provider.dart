@@ -44,7 +44,7 @@ class OrderProvider extends ChangeNotifier {
 
       if (order.status == OrderStatus.confirmed) {
         // How many seconds remain until the 60s transition?
-        final remaining = 60 - elapsed;
+        final remaining = (60 - elapsed).clamp(0, 60);
 
         if (remaining <= 0) {
           // Already past 60s — immediately move to onTheWay and persist.

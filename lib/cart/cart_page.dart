@@ -88,7 +88,10 @@ class CartPage extends StatelessWidget {
                   // Checkout button
                   SizedBox(
                     width: double.infinity,
-                    child: CupertinoButton.filled(
+                    child: CupertinoButton(
+                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFFFF6B35), // Food Tiger orange
+                      disabledColor: CupertinoColors.quaternarySystemFill.resolveFrom(context),
                       onPressed: isEmpty
                           ? null
                           : () => _handleCheckout(context, cart),
@@ -96,6 +99,11 @@ class CartPage extends StatelessWidget {
                         isEmpty
                             ? 'Proceed to Checkout'
                             : 'Checkout  •  ₱${cart.grandTotal.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: CupertinoColors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
                       ),
                     ),
                   ),
@@ -174,7 +182,11 @@ class CartPage extends StatelessWidget {
         ),
         actions: [
           CupertinoDialogAction(
-            child: const Text('Track Order'),
+            isDefaultAction: true,
+            child: const Text(
+              'Track Order',
+              style: TextStyle(color: Color(0xFFFF6B35)), // Food Tiger orange
+            ),
             onPressed: () {
               Navigator.of(ctx).pop();
               if (!context.mounted) return;
@@ -394,7 +406,7 @@ class _CircleBtn extends StatelessWidget {
         width: 30,
         height: 30,
         decoration: const BoxDecoration(
-          color: CupertinoColors.systemBlue,
+          color: Color(0xFFFF6B35), // Food Tiger orange
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 15, color: CupertinoColors.white),

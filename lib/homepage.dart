@@ -60,11 +60,29 @@ class _HomepageState extends State<Homepage> {
       if (pendingOrder != null) {
         _showRatingModal(context, orderProvider, pendingOrder.id);
       }
+    } else if (!orderProvider.pendingRating && _ratingShown) {
+      // Reset flag when no more pending ratings
+      _ratingShown = false;
     }
 
     return CupertinoTabScaffold(
       controller: _tabController,
       tabBar: CupertinoTabBar(
+        backgroundColor: isDark
+            ? const Color(0xFF1C1C1E)  // Dark mode - match app background
+            : const Color(0xFFF5EFE6), // Light mode - cream/beige
+        activeColor: const Color(0xFFFF6B35), // Food Tiger orange accent
+        inactiveColor: isDark
+            ? const Color(0xFF8E8E93)  // Dark mode inactive icons
+            : const Color(0xFF8E8E93), // Light mode inactive icons
+        border: Border(
+          top: BorderSide(
+            color: isDark
+                ? const Color(0xFF38383A) // Dark mode separator
+                : const Color(0xFFE5DED4), // Light mode separator
+            width: 0.5,
+          ),
+        ),
         onTap: (index) {
           if (index == 0 && _currentIndex == 0) {
             // Re-tapped Browse while already on Browse → scroll to top

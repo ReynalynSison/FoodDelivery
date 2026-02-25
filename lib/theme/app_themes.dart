@@ -7,7 +7,7 @@ import 'package:flutter/cupertino.dart';
 /// navTitleTextStyle / tabLabelTextStyle / bodyText styles automatically
 /// from the brightness value, avoiding TextStyle.lerp inherit-mismatch crashes.
 class AppThemes {
-  static const Color _primary = Color(0xFF007AFF); // iOS system blue
+  static const Color _primary = Color(0xFFFF6B35); // Food Tiger orange
 
   static const CupertinoThemeData lightTheme = CupertinoThemeData(
     brightness: Brightness.light,
