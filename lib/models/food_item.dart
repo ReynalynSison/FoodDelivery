@@ -11,6 +11,9 @@ class FoodAddon {
   });
 }
 
+/// Food categories used for filtering.
+enum FoodCategory { all, meat, pasta, noodles, desserts, bread, drinks }
+
 class FoodItem {
   final String id;
   final String name;
@@ -31,6 +34,9 @@ class FoodItem {
   /// Available add-ons the user can select on the detail page.
   final List<FoodAddon> addons;
 
+  /// Food category for filtering.
+  final FoodCategory category;
+
   const FoodItem({
     required this.id,
     required this.name,
@@ -42,6 +48,7 @@ class FoodItem {
     this.prepTime = 15,
     this.restaurantId = 'r1',
     this.addons = const [],
+    this.category = FoodCategory.all,
   });
 }
 

@@ -48,4 +48,3 @@ class LocationService {
     await _box.delete(_keyAddress);
   }
 }
-

@@ -1,11 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
-import 'models/order.dart';
 import 'settings.dart';
 import 'food/food_list_page.dart';
 import 'pages/history_page.dart';
 import 'pages/tracking_page.dart';
 import 'providers/order_provider.dart';
+import 'providers/theme_provider.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -15,20 +15,95 @@ class Homepage extends StatefulWidget {
 }
 
 class _HomepageState extends State<Homepage> {
+  final _tabController = CupertinoTabController(initialIndex: 0);
+  final _browseKey = GlobalKey<FoodListPageState>();
+  bool _ratingShown = false;
+  int _currentIndex = 0;
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _showRatingModal(BuildContext context, OrderProvider orderProvider, String orderId) {
+    if (_ratingShown) return;
+    _ratingShown = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showCupertinoModalPopup<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => _DeliveredRatingSheet(
+          onDone: () {
+            Navigator.of(ctx).pop();
+            orderProvider.clearPendingRating(orderId);
+            if (mounted) setState(() => _ratingShown = false);
+          },
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final orderProvider = context.watch<OrderProvider>();
+    final hasActive     = orderProvider.activeOrders.isNotEmpty;
+    final isDark        = context.watch<ThemeProvider>().isDark;
+
+    // Show the rating modal for the first pending-rating order
+    if (orderProvider.pendingRating && !_ratingShown) {
+      final pendingOrder = orderProvider.activeOrders
+          .where((o) => orderProvider.isPendingRating(o.id))
+          .firstOrNull;
+      if (pendingOrder != null) {
+        _showRatingModal(context, orderProvider, pendingOrder.id);
+      }
+    }
+
     return CupertinoTabScaffold(
+      controller: _tabController,
       tabBar: CupertinoTabBar(
-        items: const [
-          BottomNavigationBarItem(
+        onTap: (index) {
+          if (index == 0 && _currentIndex == 0) {
+            // Re-tapped Browse while already on Browse → scroll to top
+            _browseKey.currentState?.scrollToTop();
+          }
+          _currentIndex = index;
+        },
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.house_fill),
-            label: 'Discover',
+            label: 'Browse',
           ),
           BottomNavigationBarItem(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(CupertinoIcons.location_fill),
+                if (hasActive)
+                  Positioned(
+                    top: -2,
+                    right: -4,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF6B35),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            label: 'Track',
+          ),
+          const BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.clock_fill),
             label: 'History',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.settings_solid),
             label: 'Settings',
           ),
@@ -37,9 +112,13 @@ class _HomepageState extends State<Homepage> {
       tabBuilder: (context, index) {
         switch (index) {
           case 0:
-            return const _DiscoverTab();
+            return FoodListPage(key: _browseKey);
           case 1:
-            return HistoryPage();
+            return _TrackTab(isDark: isDark);
+          case 2:
+            return HistoryPage(
+              onBrowseMenu: () => _tabController.index = 0,
+            );
           default:
             return const Settings();
         }
@@ -49,114 +128,174 @@ class _HomepageState extends State<Homepage> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Discover tab wrapper — injects the Track Order banner above FoodListPage
+// Track tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _DiscoverTab extends StatelessWidget {
-  const _DiscoverTab();
+class _TrackTab extends StatelessWidget {
+  final bool isDark;
+  const _TrackTab({required this.isDark});
 
   @override
   Widget build(BuildContext context) {
-    final activeOrder = context.watch<OrderProvider>().activeOrder;
+    final activeOrders = context.watch<OrderProvider>().activeOrders;
 
-    // No active order → show food list alone
-    if (activeOrder == null) return const FoodListPage();
+    if (activeOrders.isNotEmpty) {
+      return const TrackingPage(isEmbedded: true);
+    }
 
-    // Active order → stack the banner on top of the food list
-    return Stack(
-      children: [
-        const FoodListPage(),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _TrackOrderBanner(),
+    return CupertinoPageScaffold(
+      backgroundColor: isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF5EFE6),
+      child: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF0EBE3),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  CupertinoIcons.location,
+                  size: 40,
+                  color: Color(0xFF8E8E93),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'No Active Order',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? const Color(0xFFF2F2F7) : const Color(0xFF1C1C1E),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Your delivery will appear here\nonce you place an order.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF8E8E93),
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Persistent "Track Order" sticky banner
+// Delivered rating sheet — shown as a global modal over any tab
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _TrackOrderBanner extends StatelessWidget {
+class _DeliveredRatingSheet extends StatefulWidget {
+  final VoidCallback onDone;
+  const _DeliveredRatingSheet({required this.onDone});
+
+  @override
+  State<_DeliveredRatingSheet> createState() => _DeliveredRatingSheetState();
+}
+
+class _DeliveredRatingSheetState extends State<_DeliveredRatingSheet> {
+  int _rating = 0;
+
   @override
   Widget build(BuildContext context) {
-    final order = context.watch<OrderProvider>().activeOrder!;
-
-    String statusLabel;
-    switch (order.status) {
-      case OrderStatus.confirmed:
-        statusLabel = 'Order Confirmed';
-        break;
-      case OrderStatus.onTheWay:
-        statusLabel = 'Delivery is on the way';
-        break;
-      default:
-        statusLabel = 'Order Confirmed';
-    }
-
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      padding: EdgeInsets.fromLTRB(
+        24, 20, 24,
+        MediaQuery.of(context).padding.bottom + 20,
+      ),
       decoration: BoxDecoration(
-        color: CupertinoColors.systemBlue.resolveFrom(context),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: CupertinoColors.systemBlue
-                .resolveFrom(context)
-                .withValues(alpha: 0.35),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+        color: CupertinoColors.systemBackground.resolveFrom(context),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            width: 40, height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemFill.resolveFrom(context),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Check icon
+          Container(
+            width: 72, height: 72,
+            decoration: BoxDecoration(
+              color: CupertinoColors.systemGreen.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(CupertinoIcons.checkmark_seal_fill,
+                size: 40, color: CupertinoColors.systemGreen),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Order Delivered! 🎉',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              color: CupertinoColors.label.resolveFrom(context),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Your food has arrived. Enjoy your meal!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Rate your order',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: CupertinoColors.secondaryLabel.resolveFrom(context),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(5, (i) {
+              final filled = i < _rating;
+              return GestureDetector(
+                onTap: () => setState(() => _rating = i + 1),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: Icon(
+                    filled ? CupertinoIcons.star_fill : CupertinoIcons.star,
+                    size: 34,
+                    color: filled
+                        ? CupertinoColors.systemYellow
+                        : CupertinoColors.systemFill.resolveFrom(context),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            width: double.infinity,
+            child: CupertinoButton.filled(
+              onPressed: widget.onDone,
+              child: const Text('Done'),
+            ),
           ),
         ],
       ),
-      child: CupertinoButton(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        onPressed: () => Navigator.of(context).push(
-          CupertinoPageRoute(builder: (_) => const TrackingPage()),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              CupertinoIcons.location_fill,
-              color: CupertinoColors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'Track Your Order',
-                    style: TextStyle(
-                      color: CupertinoColors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
-                  ),
-                  Text(
-                    statusLabel,
-                    style: const TextStyle(
-                      color: CupertinoColors.white,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              CupertinoIcons.chevron_right,
-              color: CupertinoColors.white,
-              size: 16,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
+

@@ -121,16 +121,12 @@ class _MapViewState extends State<MapView> {
         // Markers layer
         MarkerLayer(
           markers: [
-            // Restaurant marker
+            // Restaurant marker — Food Tiger branding
             Marker(
               point: DeliveryLocations.restaurantLocation,
-              width: 70,
-              height: 60,
-              child: _buildMarker(
-                icon: CupertinoIcons.bag_fill,
-                color: CupertinoColors.systemRed,
-                label: 'Restaurant',
-              ),
+              width: 90,
+              height: 70,
+              child: _buildRestaurantMarker(),
             ),
 
             // Rider marker — position updated each timer tick
@@ -158,6 +154,46 @@ class _MapViewState extends State<MapView> {
                 ),
               ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRestaurantMarker() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFFFF6B35),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF6B35).withValues(alpha: 0.5),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(6),
+          child: const Text('🐯', style: TextStyle(fontSize: 20)),
+        ),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6B35),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: const Text(
+            'Food Tiger',
+            style: TextStyle(
+              color: CupertinoColors.white,
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.3,
+            ),
+          ),
         ),
       ],
     );

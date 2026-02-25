@@ -1,3 +1,4 @@
+
 import 'food_item.dart';
 
 /// Represents one line in the cart — a [FoodItem] with quantity,
@@ -35,4 +36,3 @@ class CartItem {
   /// Line total (unit price × quantity).
   double get lineTotal => unitPrice * quantity;
 }
-

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 
 import '../cart/cart_page.dart';
@@ -9,8 +10,9 @@ import '../payment/payment_page.dart';
 import '../providers/order_provider.dart';
 import '../models/order.dart';
 import '../core/database/order_storage_service.dart';
+import '../core/database/location_service.dart';
 import '../pages/tracking_page.dart';
-import 'food_data.dart';
+import 'food_data.dart' hide FoodItem, FoodCategory, FoodAddon, Restaurant;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FoodDetailPage
@@ -73,7 +75,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
         title: const Text('Added to Cart'),
         content: Text(
           '${_quantity}× ${widget.item.name}\n'
-          'Total: \$${_lineTotal.toStringAsFixed(2)}',
+              'Total: ₱${_lineTotal.toStringAsFixed(0)}',
         ),
         actions: [
           CupertinoDialogAction(
@@ -98,6 +100,29 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
   // ── Order Now (bypass cart) ──────────────────────────────────────────────
 
   Future<void> _orderNow(BuildContext context) async {
+    // ── Guard: require a delivery location before payment ──────────────────
+    final locationService = LocationService();
+    if (!locationService.hasSavedLocation()) {
+      if (!context.mounted) return;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('No Delivery Location'),
+          content: const Text(
+            'Please set your delivery location first before proceeding to payment.\n\nGo to Settings → Set Location.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              child: const Text('OK'),
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final entry = CartItem(
       food: widget.item,
       quantity: _quantity,
@@ -117,13 +142,15 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
 
     debugPrint('[FoodDetail] Invoice status == PAID');
 
-    final orderId = 'order_${DateTime.now().millisecondsSinceEpoch}';
+    final orderId  = 'order_${DateTime.now().millisecondsSinceEpoch}';
+    final username = Hive.box('database').get('username', defaultValue: '') as String;
     final order = Order(
       id: orderId,
       totalAmount: total,
       status: OrderStatus.confirmed,
       createdAt: DateTime.now(),
       items: [widget.item.name],
+      username: username,
     );
 
     await OrderStorageService().saveOrder(order);
@@ -136,7 +163,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
       builder: (ctx) => CupertinoAlertDialog(
         title: const Text('Payment Successful'),
         content: Text(
-          'Order ID: $orderId\nTotal: \$${total.toStringAsFixed(2)}',
+          'Order ID: $orderId\nTotal: ₱${total.toStringAsFixed(0)}',
         ),
         actions: [
           CupertinoDialogAction(
@@ -203,7 +230,7 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                               ),
                               const SizedBox(width: 12),
                               Text(
-                                '\$${item.price.toStringAsFixed(2)}',
+                                '₱${item.price.toStringAsFixed(0)}',
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
@@ -259,10 +286,10 @@ class _FoodDetailPageState extends State<FoodDetailPage> {
                     ),
                     SliverList(
                       delegate: SliverChildBuilderDelegate(
-                        (ctx, i) => _AddonTile(
+                            (ctx, i) => _AddonTile(
                           addon: item.addons[i],
                           selected:
-                              _selectedAddonIds.contains(item.addons[i].id),
+                          _selectedAddonIds.contains(item.addons[i].id),
                           onToggle: () => _toggleAddon(item.addons[i].id),
                         ),
                         childCount: item.addons.length,
@@ -361,7 +388,7 @@ class RestaurantInfoCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color:
-            CupertinoColors.tertiarySystemBackground.resolveFrom(context),
+        CupertinoColors.tertiarySystemBackground.resolveFrom(context),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -405,7 +432,7 @@ class RestaurantInfoCard extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         color:
-                            CupertinoColors.secondaryLabel.resolveFrom(context),
+                        CupertinoColors.secondaryLabel.resolveFrom(context),
                       ),
                     ),
                   ],
@@ -445,15 +472,42 @@ class _HeroImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 240,
-      width: double.infinity,
-      color:
-          CupertinoColors.tertiarySystemBackground.resolveFrom(context),
-      child: Icon(
-        CupertinoIcons.photo_fill,
-        size: 64,
-        color: CupertinoColors.secondaryLabel.resolveFrom(context),
+    return RepaintBoundary(
+      child: SizedBox(
+        height: 280,
+        width: double.infinity,
+        child: item.imagePath.isNotEmpty
+            ? Image.network(
+                item.imagePath,
+                fit: BoxFit.cover,
+                cacheWidth: 800,
+                loadingBuilder: (_, child, progress) {
+                  if (progress == null) return child;
+                  return Container(
+                    color: CupertinoColors.tertiarySystemBackground
+                        .resolveFrom(context),
+                    child: const Center(child: CupertinoActivityIndicator()),
+                  );
+                },
+                errorBuilder: (_, __, ___) => Container(
+                  color: CupertinoColors.tertiarySystemBackground
+                      .resolveFrom(context),
+                  child: Icon(
+                    CupertinoIcons.photo_fill,
+                    size: 64,
+                    color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                  ),
+                ),
+              )
+            : Container(
+                color: CupertinoColors.tertiarySystemBackground
+                    .resolveFrom(context),
+                child: Icon(
+                  CupertinoIcons.photo_fill,
+                  size: 64,
+                  color: CupertinoColors.secondaryLabel.resolveFrom(context),
+                ),
+              ),
       ),
     );
   }
@@ -595,7 +649,7 @@ class _AddonTile extends StatelessWidget {
               ),
             ),
             Text(
-              '+\$${addon.extraPrice.toStringAsFixed(2)}',
+              '+₱${addon.extraPrice.toStringAsFixed(0)}',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
@@ -725,15 +779,15 @@ class _StickyBottomBar extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   color:
-                      CupertinoColors.secondaryLabel.resolveFrom(context),
+                  CupertinoColors.secondaryLabel.resolveFrom(context),
                 ),
               ),
               Text(
-                '\$${lineTotal.toStringAsFixed(2)}',
+                '₱${lineTotal.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontSize: 13,
                   color:
-                      CupertinoColors.secondaryLabel.resolveFrom(context),
+                  CupertinoColors.secondaryLabel.resolveFrom(context),
                 ),
               ),
             ],
@@ -747,15 +801,15 @@ class _StickyBottomBar extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   color:
-                      CupertinoColors.secondaryLabel.resolveFrom(context),
+                  CupertinoColors.secondaryLabel.resolveFrom(context),
                 ),
               ),
               Text(
-                '\$${deliveryFee.toStringAsFixed(2)}',
+                '₱${deliveryFee.toStringAsFixed(0)}',
                 style: TextStyle(
                   fontSize: 13,
                   color:
-                      CupertinoColors.secondaryLabel.resolveFrom(context),
+                  CupertinoColors.secondaryLabel.resolveFrom(context),
                 ),
               ),
             ],
@@ -904,7 +958,7 @@ class _StatusBadge extends StatelessWidget {
 class _CartIconBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final count = context.watch<CartProvider>().itemCount;
+    final count = context.watch<CartProvider>().uniqueItemCount;
     return CupertinoButton(
       padding: EdgeInsets.zero,
       onPressed: () => Navigator.of(context).push(
@@ -925,7 +979,7 @@ class _CartIconBadge extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 constraints:
-                    const BoxConstraints(minWidth: 16, minHeight: 16),
+                const BoxConstraints(minWidth: 16, minHeight: 16),
                 child: Text(
                   count > 9 ? '9+' : '$count',
                   style: const TextStyle(
@@ -954,7 +1008,3 @@ class _Divider extends StatelessWidget {
     );
   }
 }
-
-
-
-

@@ -1,3 +1,4 @@
+
 import 'package:hive/hive.dart';
 
 enum OrderStatus {
@@ -18,12 +19,16 @@ class Order {
   final DateTime createdAt;
   final List<String> items;
 
+  /// The username of the account that placed this order.
+  final String username;
+
   const Order({
     required this.id,
     required this.totalAmount,
     required this.status,
     required this.createdAt,
     required this.items,
+    this.username = '',
   });
 
   Order copyWith({
@@ -35,6 +40,7 @@ class Order {
       status: status ?? this.status,
       createdAt: createdAt,
       items: items,
+      username: username,
     );
   }
 }
@@ -61,11 +67,16 @@ class OrderAdapter extends TypeAdapter<Order> {
 
   @override
   Order read(BinaryReader reader) {
-    final id = reader.readString();
-    final totalAmount = reader.readDouble();
-    final status = reader.read() as OrderStatus;
+    final id              = reader.readString();
+    final totalAmount     = reader.readDouble();
+    final status          = reader.read() as OrderStatus;
     final createdAtMillis = reader.readInt();
-    final items = (reader.read() as List).cast<String>();
+    final items           = (reader.read() as List).cast<String>();
+    // username was added later — read gracefully for old records
+    String username = '';
+    try {
+      username = reader.readString();
+    } catch (_) {}
 
     return Order(
       id: id,
@@ -73,6 +84,7 @@ class OrderAdapter extends TypeAdapter<Order> {
       status: status,
       createdAt: DateTime.fromMillisecondsSinceEpoch(createdAtMillis),
       items: items,
+      username: username,
     );
   }
 
@@ -83,6 +95,7 @@ class OrderAdapter extends TypeAdapter<Order> {
       ..writeDouble(obj.totalAmount)
       ..write(obj.status)
       ..writeInt(obj.createdAt.millisecondsSinceEpoch)
-      ..write(obj.items);
+      ..write(obj.items)
+      ..writeString(obj.username);
   }
 }

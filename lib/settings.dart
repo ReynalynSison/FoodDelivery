@@ -1,5 +1,6 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:faceid/main.dart';
 import 'package:flutter/cupertino.dart';
@@ -22,34 +23,58 @@ class _SettingsState extends State<Settings> {
   final _box             = Hive.box('database');
   final _locationService = LocationService();
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  // â”€â”€ Local state for instant toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  late bool _biometricsEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _biometricsEnabled = _box.get('biometrics') ?? false;
+  }
+
+  // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _tiles(
-    dynamic trailing,
-    String title,
-    Color color,
-    IconData icon,
-    String additionalInfo,
-  ) {
-    return CupertinoListTile(
-      title: Text(title),
-      additionalInfo: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 140),
-        child: Text(
-          additionalInfo,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 13),
-        ),
+      dynamic trailing,
+      String title,
+      Color color,
+      IconData icon,
+      String additionalInfo, {
+      Widget? iconWidget,
+      VoidCallback? onTap,
+  }) {
+    return CupertinoListTile.notched(
+      onTap: onTap,
+      title: Text(
+        title,
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w400),
       ),
+      additionalInfo: additionalInfo.isNotEmpty
+          ? ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 160),
+              child: Text(
+                additionalInfo,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: CupertinoColors.systemGrey,
+                ),
+              ),
+            )
+          : null,
       trailing: trailing,
       leading: Container(
-        padding: const EdgeInsets.all(4),
+        width: 30,
+        height: 30,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(6),
           color: color,
+          borderRadius: BorderRadius.circular(7),
         ),
-        child: Icon(icon, size: 17),
+        child: Center(
+          child: iconWidget ??
+              Icon(icon, size: 17, color: CupertinoColors.white),
+        ),
       ),
     );
   }
@@ -69,9 +94,9 @@ class _SettingsState extends State<Settings> {
         builder: (_) => _LocationPickerPage(
           initial: _locationService.hasSavedLocation()
               ? LatLng(
-                  _locationService.getSavedLat()!,
-                  _locationService.getSavedLng()!,
-                )
+            _locationService.getSavedLat()!,
+            _locationService.getSavedLng()!,
+          )
               : null,
           initialAddress: _locationService.getSavedAddress(),
         ),
@@ -88,106 +113,195 @@ class _SettingsState extends State<Settings> {
     }
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+    // â”€â”€ Build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  @override
-  Widget build(BuildContext context) {
+    @override
+    Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
 
     return CupertinoPageScaffold(
-      child: ListView(
-        children: [
-          // ── Account section ──────────────────────────────────────────────
-          CupertinoListSection.insetGrouped(
-            header: const Text('Account'),
-            children: [
-              _tiles(
-                CupertinoSwitch(
-                  value: _box.get('biometrics') ?? false,
-                  onChanged: (value) {
-                    setState(() => _box.put('biometrics', value));
-                  },
-                ),
-                'Biometrics',
-                CupertinoColors.systemGreen,
-                CupertinoIcons.hand_thumbsup_fill,
-                '',
-              ),
-              GestureDetector(
-                onTap: () {
-                  showCupertinoDialog(
-                    context: context,
-                    builder: (ctx) => CupertinoAlertDialog(
-                      title: const Text('Logout?'),
-                      actions: [
-                        CupertinoDialogAction(
-                          child: const Text('Yes'),
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            Navigator.pushReplacement(
-                              context,
-                              CupertinoPageRoute(
-                                builder: (_) => const LoginPage(),
-                              ),
-                            );
-                          },
+      backgroundColor:
+          CupertinoColors.systemGroupedBackground.resolveFrom(context),
+      child: CustomScrollView(
+        slivers: [
+          // ── Large title nav bar ─────────────────────────────────────────
+          const CupertinoSliverNavigationBar(
+            largeTitle: Text('Settings'),
+            border: null,
+          ),
+
+          SliverList(
+            delegate: SliverChildListDelegate([
+
+              // ── ACCOUNT ─────────────────────────────────────────────────
+              CupertinoListSection.insetGrouped(
+                header: const Text('ACCOUNT'),
+                children: [
+                  // Profile tile
+                  CupertinoListTile.notched(
+                    onTap: () {
+                      showCupertinoDialog<void>(
+                        context: context,
+                        builder: (ctx) => CupertinoAlertDialog(
+                          title: const Text('Profile'),
+                          content: Text(
+                            'Signed in as: ${_box.get('username') ?? 'Guest'}',
+                          ),
+                          actions: [
+                            CupertinoDialogAction(
+                              child: const Text('OK'),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
                         ),
-                        CupertinoDialogAction(
-                          isDestructiveAction: true,
-                          child: const Text('Close'),
-                          onPressed: () => Navigator.pop(ctx),
-                        ),
-                      ],
+                      );
+                    },
+                    leading: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3A7BD5), // formal steel-blue
+                        borderRadius: BorderRadius.circular(7),
+                      ),
+                      child: const Center(
+                        child: Icon(CupertinoIcons.person_fill,
+                            size: 17, color: CupertinoColors.white),
+                      ),
                     ),
-                  );
-                },
-                child: _tiles(
-                  const Icon(CupertinoIcons.chevron_forward),
-                  'Sign out',
-                  CupertinoColors.systemPurple,
-                  CupertinoIcons.square_arrow_right,
-                  _box.get('username') ?? '',
-                ),
-              ),
-            ],
-          ),
+                    title: Text(
+                      _box.get('username') ?? 'Guest',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w500),
+                    ),
+                    additionalInfo: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 160),
+                      child: Text(
+                        _box.get('email') ?? '',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 14,
+                            color: CupertinoColors.systemGrey),
+                      ),
+                    ),
+                    trailing: const CupertinoListTileChevron(),
+                  ),
 
-          // ── Appearance section ───────────────────────────────────────────
-          CupertinoListSection.insetGrouped(
-            header: const Text('Appearance'),
-            children: [
-              _tiles(
-                CupertinoSwitch(
-                  value: themeProvider.isDark,
-                  onChanged: (_) => themeProvider.toggleTheme(),
-                ),
-                'Dark Mode',
-                CupertinoColors.systemIndigo,
-                CupertinoIcons.moon_fill,
-                themeProvider.isDark ? 'On' : 'Off',
+                  // Face ID tile
+                  _tiles(
+                    CupertinoSwitch(
+                      value: _biometricsEnabled,
+                      onChanged: (value) {
+                        setState(() => _biometricsEnabled = value);
+                        _box.put('biometrics', value);
+                      },
+                    ),
+                    'Face ID',
+                    const Color(0xFF2DB87D), // formal teal-green
+                    CupertinoIcons.person_fill,
+                    '',
+                    iconWidget: const _FaceIdIcon(
+                        size: 17, color: CupertinoColors.white),
+                  ),
+                ],
               ),
-            ],
-          ),
 
-          // ── Delivery Location section ─────────────────────────────────────
-          CupertinoListSection.insetGrouped(
-            header: const Text('Delivery Location'),
-            footer: const Text(
-              'Tap to open the map and pin your delivery address. '
-              'This location will be used as the drop-off point.',
-            ),
-            children: [
-              GestureDetector(
-                onTap: _openLocationPicker,
-                child: _tiles(
-                  const Icon(CupertinoIcons.chevron_forward),
-                  'Set Delivery Location',
-                  CupertinoColors.systemBlue,
-                  CupertinoIcons.location_fill,
-                  _locationLabel(),
+              // ── APPEARANCE ──────────────────────────────────────────────
+              CupertinoListSection.insetGrouped(
+                header: const Text('APPEARANCE'),
+                children: [
+                  _tiles(
+                    CupertinoSwitch(
+                      value: themeProvider.isDark,
+                      onChanged: (_) => themeProvider.toggleTheme(),
+                    ),
+                    'Dark Mode',
+                    const Color(0xFF5856D6), // formal indigo
+                    CupertinoIcons.moon_fill,
+                    themeProvider.isDark ? 'On' : 'Off',
+                  ),
+                ],
+              ),
+
+              // ── DELIVERY ────────────────────────────────────────────────
+              CupertinoListSection.insetGrouped(
+                header: const Text('DELIVERY'),
+                footer: const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                    'Tap to open the map and pin your delivery address. '
+                    'This location will be used as the drop-off point.',
+                  ),
+                ),
+                children: [
+                  _tiles(
+                    const CupertinoListTileChevron(),
+                    'Delivery Location',
+                    const Color(0xFF007AFF), // iOS system blue
+                    CupertinoIcons.location_fill,
+                    _locationLabel(),
+                    onTap: _openLocationPicker,
+                  ),
+                ],
+              ),
+
+              // ── SIGN OUT ────────────────────────────────────────────────
+              CupertinoListSection.insetGrouped(
+                children: [
+                  _tiles(
+                    const SizedBox.shrink(),
+                    'Sign Out',
+                    const Color(0xFFFF3B30), // iOS system red
+                    CupertinoIcons.square_arrow_right,
+                    '',
+                    onTap: () {
+                      showCupertinoDialog(
+                        context: context,
+                        builder: (ctx) => CupertinoAlertDialog(
+                          title: const Text('Sign Out'),
+                          content: const Text(
+                              'Are you sure you want to sign out?'),
+                          actions: [
+                            CupertinoDialogAction(
+                              isDestructiveAction: true,
+                              child: const Text('Sign Out'),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.pushReplacement(
+                                  context,
+                                  CupertinoPageRoute(
+                                    builder: (_) => const LoginPage(),
+                                  ),
+                                );
+                              },
+                            ),
+                            CupertinoDialogAction(
+                              isDefaultAction: true,
+                              child: const Text('Cancel'),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 32),
+
+              // ── App version footer ───────────────────────────────────────
+              Center(
+                child: Text(
+                  'Food Tiger v1.0.0',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: CupertinoColors.systemGrey.resolveFrom(context),
+                  ),
                 ),
               ),
-            ],
+              const SizedBox(height: 24),
+            ]),
           ),
         ],
       ),
@@ -195,9 +309,6 @@ class _SettingsState extends State<Settings> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// _NominatimResult — lightweight model for a single Nominatim suggestion
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _NominatimResult {
   final String displayName;
@@ -218,7 +329,7 @@ class _NominatimResult {
     );
   }
 
-  /// Short label — first two comma-separated parts of display_name.
+  /// Short label â€” first two comma-separated parts of display_name.
   String get shortName {
     final parts = displayName.split(',');
     if (parts.length >= 2) return '${parts[0].trim()}, ${parts[1].trim()}';
@@ -226,9 +337,9 @@ class _NominatimResult {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Location Picker Page — search-driven; Nominatim forward geocoding
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Location Picker Page â€” search-driven; Nominatim forward geocoding
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _LocationPickerPage extends StatefulWidget {
   /// Pre-existing saved pin (null if first time).
@@ -242,25 +353,25 @@ class _LocationPickerPage extends StatefulWidget {
 }
 
 class _LocationPickerPageState extends State<_LocationPickerPage> {
-  // ── Controllers ────────────────────────────────────────────────────────────
+  // â”€â”€ Controllers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   late final MapController _mapController;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
 
-  // ── State ──────────────────────────────────────────────────────────────────
+  // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   LatLng? _pinned;
   String? _pinnedAddress;
   List<_NominatimResult> _suggestions = [];
   bool _isSearching = false;
   bool _showSuggestions = false;
 
-  // ── Debounce ───────────────────────────────────────────────────────────────
+  // â”€â”€ Debounce â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   Timer? _debounce;
 
   /// Metro Manila default view centre
   static const LatLng _manilaCenter = LatLng(14.5995, 120.9842);
 
-  // ── Lifecycle ──────────────────────────────────────────────────────────────
+  // â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   @override
   void initState() {
@@ -272,7 +383,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
       _pinnedAddress = (widget.initialAddress != null && widget.initialAddress!.isNotEmpty)
           ? widget.initialAddress
           : '${widget.initial!.latitude.toStringAsFixed(5)}, '
-            '${widget.initial!.longitude.toStringAsFixed(5)}';
+          '${widget.initial!.longitude.toStringAsFixed(5)}';
     }
   }
 
@@ -285,7 +396,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
     super.dispose();
   }
 
-  // ── Nominatim search ───────────────────────────────────────────────────────
+  // â”€â”€ Nominatim search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   void _onSearchChanged(String query) {
     _debounce?.cancel();
@@ -306,8 +417,8 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
     try {
       final uri = Uri.parse(
         'https://nominatim.openstreetmap.org/search'
-        '?q=${Uri.encodeComponent(query)}'
-        '&format=json&limit=6&addressdetails=0',
+            '?q=${Uri.encodeComponent(query)}'
+            '&format=json&limit=6&addressdetails=0',
       );
       final response = await http.get(
         uri,
@@ -331,7 +442,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
     }
   }
 
-  // ── Suggestion selected ────────────────────────────────────────────────────
+  // â”€â”€ Suggestion selected â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   void _selectSuggestion(_NominatimResult result) {
     final latLng = LatLng(result.lat, result.lng);
@@ -347,7 +458,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
     _mapController.move(latLng, 15);
   }
 
-  // ── Clear pin ──────────────────────────────────────────────────────────────
+  // â”€â”€ Clear pin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   void _clearPin() {
     _searchController.clear();
@@ -359,18 +470,18 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
     });
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Build â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   @override
   Widget build(BuildContext context) {
     final bg = CupertinoColors.systemBackground.resolveFrom(context);
     final secondaryBg =
-        CupertinoColors.secondarySystemBackground.resolveFrom(context);
+    CupertinoColors.secondarySystemBackground.resolveFrom(context);
     final labelColor = CupertinoColors.label.resolveFrom(context);
     final secondaryLabel =
-        CupertinoColors.secondaryLabel.resolveFrom(context);
+    CupertinoColors.secondaryLabel.resolveFrom(context);
     final separatorColor =
-        CupertinoColors.separator.resolveFrom(context);
+    CupertinoColors.separator.resolveFrom(context);
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
@@ -379,7 +490,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
       child: SafeArea(
         child: Stack(
           children: [
-            // ── Full-screen map (no tap-to-pin) ─────────────────────────────
+            // â”€â”€ Full-screen map (no tap-to-pin) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             FlutterMap(
               mapController: _mapController,
               options: MapOptions(
@@ -389,7 +500,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
               children: [
                 TileLayer(
                   urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.example.faceid',
                   maxZoom: 19,
                 ),
@@ -407,7 +518,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
               ],
             ),
 
-            // ── Top search panel ─────────────────────────────────────────────
+            // â”€â”€ Top search panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             Positioned(
               top: 10,
               left: 12,
@@ -439,6 +550,8 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                           child: CupertinoTextField.borderless(
                             controller: _searchController,
                             focusNode: _searchFocus,
+                            autocorrect: false,
+                            enableSuggestions: false,
                             placeholder: 'Search address or place…',
                             placeholderStyle: TextStyle(
                               color: secondaryLabel,
@@ -473,7 +586,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                     ),
                   ),
 
-                  // ── Suggestions list ────────────────────────────────────
+                  // â”€â”€ Suggestions list â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   if (_showSuggestions && _suggestions.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(top: 4),
@@ -483,7 +596,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                         boxShadow: [
                           BoxShadow(
                             color:
-                                CupertinoColors.black.withValues(alpha: 0.10),
+                            CupertinoColors.black.withValues(alpha: 0.10),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -500,7 +613,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                               onTap: () => _selectSuggestion(item),
                               child: Column(
                                 crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
+                                CrossAxisAlignment.stretch,
                                 children: [
                                   Padding(
                                     padding: const EdgeInsets.symmetric(
@@ -517,7 +630,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                            CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 item.shortName,
@@ -528,7 +641,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                                                 ),
                                                 maxLines: 1,
                                                 overflow:
-                                                    TextOverflow.ellipsis,
+                                                TextOverflow.ellipsis,
                                               ),
                                               const SizedBox(height: 2),
                                               Text(
@@ -539,7 +652,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                                                 ),
                                                 maxLines: 1,
                                                 overflow:
-                                                    TextOverflow.ellipsis,
+                                                TextOverflow.ellipsis,
                                               ),
                                             ],
                                           ),
@@ -564,7 +677,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
               ),
             ),
 
-            // ── Bottom confirmation panel ────────────────────────────────────
+            // â”€â”€ Bottom confirmation panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (_pinned != null && !_showSuggestions)
               Positioned(
                 bottom: 0,
@@ -659,8 +772,8 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                       CupertinoButton.filled(
                         borderRadius: BorderRadius.circular(12),
                         onPressed: () => Navigator.of(context).pop((
-                          latLng: _pinned!,
-                          address: _pinnedAddress ?? '',
+                        latLng: _pinned!,
+                        address: _pinnedAddress ?? '',
                         )),
                         child: const Text(
                           'Save Location',
@@ -691,7 +804,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
                 ),
               ),
 
-            // ── Empty state hint (no pin yet, suggestions closed) ────────────
+            // â”€â”€ Empty state hint (no pin yet, suggestions closed) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (_pinned == null && !_showSuggestions)
               Positioned(
                 bottom: 28,
@@ -735,7 +848,7 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
     );
   }
 
-  // ── Pin widget ─────────────────────────────────────────────────────────────
+  // â”€â”€ Pin widget â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   Widget _buildPin() {
     return Column(
@@ -771,5 +884,120 @@ class _LocationPickerPageState extends State<_LocationPickerPage> {
       ],
     );
   }
+} // end _LocationPickerPageState
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Face ID icon — CustomPainter (corner brackets + eyes + nose + smile)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FaceIdIcon extends StatelessWidget {
+  final double size;
+  final Color color;
+  const _FaceIdIcon({this.size = 24, this.color = CupertinoColors.white});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CustomPaint(
+        painter: _FaceIdPainter(color: color),
+      ),
+    );
+  }
 }
 
+class _FaceIdPainter extends CustomPainter {
+  final Color color;
+  const _FaceIdPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.width * 0.09
+      ..strokeCap = StrokeCap.round;
+
+    final w = size.width;
+    final h = size.height;
+    final r = w * 0.18;
+    final arm = w * 0.28;
+
+    // Top-left bracket
+    canvas.drawPath(
+      ui.Path()
+        ..moveTo(0, arm)
+        ..lineTo(0, r)
+        ..arcToPoint(Offset(r, 0), radius: Radius.circular(r))
+        ..lineTo(arm, 0),
+      paint,
+    );
+    // Top-right bracket
+    canvas.drawPath(
+      ui.Path()
+        ..moveTo(w - arm, 0)
+        ..lineTo(w - r, 0)
+        ..arcToPoint(Offset(w, r), radius: Radius.circular(r))
+        ..lineTo(w, arm),
+      paint,
+    );
+    // Bottom-left bracket
+    canvas.drawPath(
+      ui.Path()
+        ..moveTo(0, h - arm)
+        ..lineTo(0, h - r)
+        ..arcToPoint(Offset(r, h),
+            radius: Radius.circular(r), clockwise: false)
+        ..lineTo(arm, h),
+      paint,
+    );
+    // Bottom-right bracket
+    canvas.drawPath(
+      ui.Path()
+        ..moveTo(w - arm, h)
+        ..lineTo(w - r, h)
+        ..arcToPoint(Offset(w, h - r),
+            radius: Radius.circular(r), clockwise: false)
+        ..lineTo(w, h - arm),
+      paint,
+    );
+
+    final cx = w / 2;
+    // Left eye
+    canvas.drawLine(
+      Offset(cx - w * 0.22, h * 0.33),
+      Offset(cx - w * 0.22, h * 0.45),
+      paint,
+    );
+    // Right eye
+    canvas.drawLine(
+      Offset(cx + w * 0.22, h * 0.33),
+      Offset(cx + w * 0.22, h * 0.45),
+      paint,
+    );
+    // Nose
+    canvas.drawPath(
+      ui.Path()
+        ..moveTo(cx, h * 0.40)
+        ..lineTo(cx, h * 0.58)
+        ..lineTo(cx - w * 0.08, h * 0.62),
+      paint,
+    );
+    // Smile
+    canvas.drawArc(
+      Rect.fromCenter(
+        center: Offset(cx, h * 0.62),
+        width: w * 0.44,
+        height: h * 0.22,
+      ),
+      0.3,
+      2.54,
+      false,
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_FaceIdPainter old) => old.color != color;
+}

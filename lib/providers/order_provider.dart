@@ -1,63 +1,135 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../core/database/order_storage_service.dart';
 import '../models/order.dart';
 
 class OrderProvider extends ChangeNotifier {
-  Order? _currentOrder;
+  // ── Multiple active orders ────────────────────────────────────────────────
+  final List<Order>         _activeOrders  = [];
+  final Map<String, Timer?> _confirmTimers = {};
+  final Map<String, bool>   _pendingRating = {};
 
-  /// Single timer: fires once after 60 s to transition confirmed → onTheWay.
-  Timer? _confirmationTimer;
+  final _storage = OrderStorageService();
 
-  Order? get currentOrder => _currentOrder;
+  // ── Getters ───────────────────────────────────────────────────────────────
 
-  /// Returns the current order only when it is NOT yet delivered.
-  /// Used by Homepage banner and History page to detect an in-progress order.
+  /// All orders that are NOT yet delivered (confirmed or onTheWay).
+  List<Order> get activeOrders => List.unmodifiable(_activeOrders);
+
+  /// First active (non-delivered) order — kept for backwards-compat.
   Order? get activeOrder =>
-      (_currentOrder != null &&
-              _currentOrder!.status != OrderStatus.delivered)
-          ? _currentOrder
-          : null;
+      _activeOrders.isNotEmpty ? _activeOrders.first : null;
 
-  // -------------------------------------------------------------------------
-  // Start order (called AFTER Hive save + cart clear in CartPage)
-  // -------------------------------------------------------------------------
+  /// First current order regardless of status — kept for backwards-compat.
+  Order? get currentOrder => _activeOrders.isNotEmpty
+      ? _activeOrders.first
+      : null;
 
-  /// Sets the current order to [order] (status must be [OrderStatus.confirmed])
-  /// and starts the 60-second timer that transitions to [OrderStatus.onTheWay].
+  /// Whether ANY order has a pending (unrated) delivery.
+  bool get pendingRating => _pendingRating.values.any((v) => v);
+
+  /// Returns true if the specific order is pending rating.
+  bool isPendingRating(String orderId) => _pendingRating[orderId] == true;
+
+  // ── Restore persisted active orders on app launch ─────────────────────────
+
+  /// Call once from [main] (or initState) after Hive is ready.
+  Future<void> restoreActiveOrders() async {
+    final saved = _storage.getActiveOrders();
+    final now   = DateTime.now();
+
+    for (final order in saved) {
+      _pendingRating[order.id] = false;
+      final elapsed = now.difference(order.createdAt).inSeconds;
+
+      if (order.status == OrderStatus.confirmed) {
+        // How many seconds remain until the 60s transition?
+        final remaining = 60 - elapsed;
+
+        if (remaining <= 0) {
+          // Already past 60s — immediately move to onTheWay and persist.
+          final updated = order.copyWith(status: OrderStatus.onTheWay);
+          _activeOrders.add(updated);
+          await _storage.updateOrderStatus(order.id, OrderStatus.onTheWay);
+          // No more timer needed — TrackingPage handles rider movement.
+        } else {
+          // Resume countdown with remaining seconds.
+          _activeOrders.add(order);
+          _confirmTimers[order.id] = Timer(
+            Duration(seconds: remaining),
+            () => _updateStatus(order.id, OrderStatus.onTheWay),
+          );
+          debugPrint('[OrderProvider] Resumed timer for ${order.id}: ${remaining}s left');
+        }
+      } else if (order.status == OrderStatus.onTheWay) {
+        // Already on the way — add directly; rider animation in TrackingPage
+        // will pick it up and move to delivered when done.
+        _activeOrders.add(order);
+      }
+      // delivered orders are ignored (not active)
+    }
+
+    if (_activeOrders.isNotEmpty) notifyListeners();
+  }
+
+  // ── Start a brand-new order ───────────────────────────────────────────────
+
   void startOrder(Order order) {
-    _confirmationTimer?.cancel();
-    _currentOrder = order;
+    // Cancel previous timer for same id just in case
+    _confirmTimers[order.id]?.cancel();
+    _pendingRating[order.id] = false;
+
+    _activeOrders.add(order);
     notifyListeners();
 
-    debugPrint('[OrderProvider] 60-second timer started for order: ${order.id}');
+    debugPrint('[OrderProvider] Timer started for ${order.id}');
 
-    _confirmationTimer = Timer(const Duration(seconds: 60), () {
-      if (_currentOrder == null) return;
-      debugPrint('[OrderProvider] 60 seconds elapsed → status: onTheWay');
-      _currentOrder = _currentOrder!.copyWith(status: OrderStatus.onTheWay);
-      notifyListeners();
+    _confirmTimers[order.id] = Timer(const Duration(seconds: 60), () {
+      _updateStatus(order.id, OrderStatus.onTheWay);
     });
   }
 
-  // -------------------------------------------------------------------------
-  // Force delivered — called by TrackingPage when rider reaches destination
-  // -------------------------------------------------------------------------
+  // ── Force delivered ───────────────────────────────────────────────────────
+  Future<void> forceDelivered(String orderId) async {
+    _confirmTimers[orderId]?.cancel();
+    _confirmTimers[orderId] = null;
 
-  /// Cancels the confirmation timer and marks the order as delivered.
-  /// Called by TrackingPage when the rider animation reaches the final waypoint.
-  void forceDelivered() {
-    _confirmationTimer?.cancel();
-    if (_currentOrder != null &&
-        _currentOrder!.status != OrderStatus.delivered) {
-      debugPrint('[OrderProvider] Rider reached destination → status: delivered');
-      _currentOrder = _currentOrder!.copyWith(status: OrderStatus.delivered);
-      notifyListeners();
-    }
+    final idx = _activeOrders.indexWhere((o) => o.id == orderId);
+    if (idx == -1) return;
+    if (_activeOrders[idx].status == OrderStatus.delivered) return;
+
+    debugPrint('[OrderProvider] Delivered: $orderId');
+    _activeOrders[idx] = _activeOrders[idx].copyWith(status: OrderStatus.delivered);
+    _pendingRating[orderId] = true;
+
+    await _storage.updateOrderStatus(orderId, OrderStatus.delivered);
+
+    notifyListeners();
+  }
+
+  /// Called after the user dismisses the rating sheet.
+  void clearPendingRating(String orderId) {
+    _pendingRating[orderId] = false;
+    _activeOrders.removeWhere((o) => o.id == orderId);
+    _confirmTimers.remove(orderId);
+    _pendingRating.remove(orderId);
+    notifyListeners();
+  }
+
+  // ── Internal ──────────────────────────────────────────────────────────────
+  void _updateStatus(String orderId, OrderStatus newStatus) {
+    final idx = _activeOrders.indexWhere((o) => o.id == orderId);
+    if (idx == -1) return;
+    debugPrint('[OrderProvider] $orderId → $newStatus');
+    _activeOrders[idx] = _activeOrders[idx].copyWith(status: newStatus);
+    // Persist the status change so it survives the next app launch too.
+    _storage.updateOrderStatus(orderId, newStatus);
+    notifyListeners();
   }
 
   @override
   void dispose() {
-    _confirmationTimer?.cancel();
+    for (final t in _confirmTimers.values) t?.cancel();
     super.dispose();
   }
 }

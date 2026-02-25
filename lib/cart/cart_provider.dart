@@ -14,8 +14,11 @@ class CartProvider extends ChangeNotifier {
   /// Backwards-compat: list of unique [FoodItem]s in cart.
   List<FoodItem> get items => _items.map((e) => e.food).toList();
 
-  /// Total number of individual units.
+  /// Total number of individual units (sum of all quantities).
   int get itemCount => _items.fold(0, (s, e) => s + e.quantity);
+
+  /// Number of distinct cart lines (used for the cart badge).
+  int get uniqueItemCount => _items.length;
 
   // ── Price ────────────────────────────────────────────────────────────────
 
@@ -41,7 +44,7 @@ class CartProvider extends ChangeNotifier {
   /// If a plain (no-addon) entry already exists, increments it.
   void addItem(FoodItem item) {
     final idx = _items.indexWhere(
-      (e) => e.food.id == item.id && e.selectedAddonIds.isEmpty,
+          (e) => e.food.id == item.id && e.selectedAddonIds.isEmpty,
     );
     if (idx >= 0) {
       _items[idx].quantity++;
@@ -54,7 +57,7 @@ class CartProvider extends ChangeNotifier {
   /// Quick-remove: decrements the plain (no-addon) entry for [item].
   void removeItem(FoodItem item) {
     final idx = _items.indexWhere(
-      (e) => e.food.id == item.id && e.selectedAddonIds.isEmpty,
+          (e) => e.food.id == item.id && e.selectedAddonIds.isEmpty,
     );
     if (idx < 0) return;
     if (_items[idx].quantity <= 1) {

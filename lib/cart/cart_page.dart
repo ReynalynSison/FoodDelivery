@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:hive/hive.dart';
 import 'package:provider/provider.dart';
 import '../models/cart_item.dart';
 import '../models/order.dart';
@@ -6,6 +7,7 @@ import '../pages/tracking_page.dart';
 import '../providers/order_provider.dart';
 import '../payment/payment_page.dart';
 import '../core/database/order_storage_service.dart';
+import '../core/database/location_service.dart';
 import 'cart_provider.dart';
 
 class CartPage extends StatelessWidget {
@@ -28,12 +30,12 @@ class CartPage extends StatelessWidget {
               child: isEmpty
                   ? const _EmptyCartState()
                   : ListView.separated(
-                      padding: const EdgeInsets.only(top: 12, bottom: 8),
-                      itemCount: cart.cartItems.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) =>
-                          _CartItemTile(entry: cart.cartItems[index], index: index),
-                    ),
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                itemCount: cart.cartItems.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, index) =>
+                    _CartItemTile(entry: cart.cartItems[index], index: index),
+              ),
             ),
 
             // ── Price breakdown + checkout (always visible at bottom) ──
@@ -93,7 +95,7 @@ class CartPage extends StatelessWidget {
                       child: Text(
                         isEmpty
                             ? 'Proceed to Checkout'
-                            : 'Checkout  •  \$${cart.grandTotal.toStringAsFixed(2)}',
+                            : 'Checkout  •  ₱${cart.grandTotal.toStringAsFixed(0)}',
                       ),
                     ),
                   ),
@@ -108,6 +110,29 @@ class CartPage extends StatelessWidget {
   }
 
   Future<void> _handleCheckout(BuildContext context, CartProvider cart) async {
+    // ── Guard: require a delivery location before payment ──────────────────
+    final locationService = LocationService();
+    if (!locationService.hasSavedLocation()) {
+      if (!context.mounted) return;
+      await showCupertinoDialog<void>(
+        context: context,
+        builder: (ctx) => CupertinoAlertDialog(
+          title: const Text('No Delivery Location'),
+          content: const Text(
+            'Please set your delivery location first before proceeding to payment.\n\nGo to Settings → Set Location.',
+          ),
+          actions: [
+            CupertinoDialogAction(
+              isDefaultAction: true,
+              child: const Text('OK'),
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final totalAmount = cart.grandTotal;
 
     final bool? paid = await Navigator.of(context).push<bool>(
@@ -120,8 +145,9 @@ class CartPage extends StatelessWidget {
 
     debugPrint('[CartPage] Invoice status == PAID');
 
-    final orderId = 'order_${DateTime.now().millisecondsSinceEpoch}';
+    final orderId   = 'order_${DateTime.now().millisecondsSinceEpoch}';
     final itemNames = cart.cartItems.map((e) => e.food.name).toList();
+    final username  = Hive.box('database').get('username', defaultValue: '') as String;
 
     final order = Order(
       id: orderId,
@@ -129,6 +155,7 @@ class CartPage extends StatelessWidget {
       status: OrderStatus.confirmed,
       createdAt: DateTime.now(),
       items: itemNames,
+      username: username,
     );
 
     await OrderStorageService().saveOrder(order);
@@ -143,7 +170,7 @@ class CartPage extends StatelessWidget {
       builder: (ctx) => CupertinoAlertDialog(
         title: const Text('Payment Successful'),
         content: Text(
-          'Order ID: $orderId\nTotal: \$${totalAmount.toStringAsFixed(2)}',
+          'Order ID: $orderId\nTotal: ₱${totalAmount.toStringAsFixed(0)}',
         ),
         actions: [
           CupertinoDialogAction(
@@ -186,18 +213,49 @@ class _CartItemTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Image placeholder
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              width: 56,
-              height: 56,
-              color: CupertinoColors.tertiarySystemBackground
-                  .resolveFrom(context),
-              child: Icon(
-                CupertinoIcons.photo,
-                size: 24,
-                color: CupertinoColors.secondaryLabel.resolveFrom(context),
+          // Food image
+          RepaintBoundary(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 72,
+                height: 72,
+                child: entry.food.imagePath.isNotEmpty
+                    ? Image.network(
+                        entry.food.imagePath,
+                        fit: BoxFit.cover,
+                        cacheWidth: 200,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: CupertinoColors.tertiarySystemBackground
+                              .resolveFrom(context),
+                          child: Icon(
+                            CupertinoIcons.photo,
+                            size: 28,
+                            color: CupertinoColors.secondaryLabel
+                                .resolveFrom(context),
+                          ),
+                        ),
+                        loadingBuilder: (_, child, progress) {
+                          if (progress == null) return child;
+                          return Container(
+                            color: CupertinoColors.tertiarySystemBackground
+                                .resolveFrom(context),
+                            child: const Center(
+                              child: CupertinoActivityIndicator(),
+                            ),
+                          );
+                        },
+                      )
+                    : Container(
+                        color: CupertinoColors.tertiarySystemBackground
+                            .resolveFrom(context),
+                        child: Icon(
+                          CupertinoIcons.photo,
+                          size: 28,
+                          color: CupertinoColors.secondaryLabel
+                              .resolveFrom(context),
+                        ),
+                      ),
               ),
             ),
           ),
@@ -224,7 +282,7 @@ class _CartItemTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       color:
-                          CupertinoColors.secondaryLabel.resolveFrom(context),
+                      CupertinoColors.secondaryLabel.resolveFrom(context),
                     ),
                   ),
                 ],
@@ -238,13 +296,13 @@ class _CartItemTile extends StatelessWidget {
                       fontSize: 11,
                       fontStyle: FontStyle.italic,
                       color:
-                          CupertinoColors.secondaryLabel.resolveFrom(context),
+                      CupertinoColors.secondaryLabel.resolveFrom(context),
                     ),
                   ),
                 ],
                 const SizedBox(height: 6),
                 Text(
-                  'Line total: \$${entry.lineTotal.toStringAsFixed(2)}',
+                  'Line total: ₱${entry.lineTotal.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -376,7 +434,7 @@ class _PriceRow extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: style),
-        Text('\$${value.toStringAsFixed(2)}', style: style),
+        Text('₱${value.toStringAsFixed(0)}', style: style),
       ],
     );
   }
