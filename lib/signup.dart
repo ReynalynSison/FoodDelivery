@@ -133,6 +133,7 @@ class _SignupPageState extends State<SignupPage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
                   child: Column(
+
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
@@ -147,6 +148,7 @@ class _SignupPageState extends State<SignupPage> {
                       const SizedBox(height: 4),
                       const Text(
                         'Sign up to start ordering',
+
                         style: TextStyle(
                           fontSize: 14,
                           color: Color(0xFF8E8E93),
