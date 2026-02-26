@@ -4,8 +4,10 @@ import 'settings.dart';
 import 'food/food_list_page.dart';
 import 'pages/history_page.dart';
 import 'pages/tracking_page.dart';
+import 'pages/wishlist_page.dart';
 import 'providers/order_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/wishlist_provider.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -121,6 +123,28 @@ class _HomepageState extends State<Homepage> {
             icon: Icon(CupertinoIcons.clock_fill),
             label: 'History',
           ),
+          BottomNavigationBarItem(
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(CupertinoIcons.heart_fill),
+                if (context.watch<WishlistProvider>().ids.isNotEmpty)
+                  Positioned(
+                    top: -2,
+                    right: -4,
+                    child: Container(
+                      width: 9,
+                      height: 9,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF6B35),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            label: 'Wishlist',
+          ),
           const BottomNavigationBarItem(
             icon: Icon(CupertinoIcons.settings_solid),
             label: 'Settings',
@@ -137,6 +161,8 @@ class _HomepageState extends State<Homepage> {
             return HistoryPage(
               onBrowseMenu: () => _tabController.index = 0,
             );
+          case 3:
+            return const WishlistPage();
           default:
             return const Settings();
         }

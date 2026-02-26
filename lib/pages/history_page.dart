@@ -153,17 +153,6 @@ class _PageHeader extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              width: 42, height: 42,
-              decoration: BoxDecoration(
-                color: _kCard(isDark),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: const [
-                  BoxShadow(color: Color(0x12000000), blurRadius: 8, offset: Offset(0, 2))
-                ],
-              ),
-              child: Icon(CupertinoIcons.bell, color: _kDark(isDark), size: 20),
-            ),
           ],
         ),
       );

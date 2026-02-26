@@ -314,7 +314,7 @@ class _CartItemTile extends StatelessWidget {
                 ],
                 const SizedBox(height: 6),
                 Text(
-                  'Line total: ₱${entry.lineTotal.toStringAsFixed(0)}',
+                  '₱${entry.unitPrice.toStringAsFixed(0)}',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,

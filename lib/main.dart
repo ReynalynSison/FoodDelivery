@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'homepage.dart';
 import 'signup.dart';
@@ -10,6 +11,7 @@ import 'cart/cart_provider.dart';
 import 'models/order.dart';
 import 'providers/order_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/wishlist_provider.dart';
 import 'theme/app_themes.dart';
 
 void main() async {
@@ -24,18 +26,31 @@ void main() async {
   // Load persisted brightness BEFORE first frame — prevents flicker
   final themeProvider = await ThemeProvider.load();
 
+  // Load persisted wishlist
+  final wishlistProvider = await WishlistProvider.load();
+
   // Restore any active (non-delivered) orders that were in-flight
   // when the app was last closed, resuming their timers correctly.
   final orderProvider = OrderProvider();
   await orderProvider.restoreActiveOrders();
 
-  runApp(MyApp(themeProvider: themeProvider, orderProvider: orderProvider));
+  runApp(MyApp(
+    themeProvider: themeProvider,
+    orderProvider: orderProvider,
+    wishlistProvider: wishlistProvider,
+  ));
 }
 
 class MyApp extends StatefulWidget {
-  final ThemeProvider  themeProvider;
-  final OrderProvider  orderProvider;
-  const MyApp({super.key, required this.themeProvider, required this.orderProvider});
+  final ThemeProvider themeProvider;
+  final OrderProvider orderProvider;
+  final WishlistProvider wishlistProvider;
+  const MyApp({
+    super.key,
+    required this.themeProvider,
+    required this.orderProvider,
+    required this.wishlistProvider,
+  });
 
   @override
   State<MyApp> createState() => _State();
@@ -49,9 +64,8 @@ class _State extends State<MyApp> {
       providers: [
         ChangeNotifierProvider<ThemeProvider>.value(value: widget.themeProvider),
         ChangeNotifierProvider(create: (_) => CartProvider()),
-        // Supply the pre-loaded OrderProvider so restored orders are available
-        // from the very first frame.
         ChangeNotifierProvider<OrderProvider>.value(value: widget.orderProvider),
+        ChangeNotifierProvider<WishlistProvider>.value(value: widget.wishlistProvider),
       ],
       child: Consumer<ThemeProvider>(
         builder: (_, themeProvider, __) => CupertinoApp(
@@ -106,9 +120,10 @@ class _LoginPageState extends State<LoginPage> {
   void _onSignIn() {
     if (_username.text.trim() == box.get("username") &&
         _password.text.trim() == box.get("password")) {
-      Navigator.pushReplacement(
+      Navigator.pushAndRemoveUntil(
         context,
         CupertinoPageRoute(builder: (_) => const Homepage()),
+        (route) => false, // remove ALL previous routes
       );
     } else {
       setState(() => msg = "Invalid username or password.");
@@ -123,8 +138,11 @@ class _LoginPageState extends State<LoginPage> {
         persistAcrossBackgrounding: true,
       );
       if (ok && mounted) {
-        Navigator.pushReplacement(
-            context, CupertinoPageRoute(builder: (_) => const Homepage()));
+        Navigator.pushAndRemoveUntil(
+          context,
+          CupertinoPageRoute(builder: (_) => const Homepage()),
+          (route) => false, // remove ALL previous routes
+        );
       }
     } catch (_) {
       setState(() => msg = 'Biometric auth not available.');
@@ -181,13 +199,26 @@ class _LoginPageState extends State<LoginPage> {
           CupertinoDialogAction(
             isDestructiveAction: true,
             onPressed: () async {
+              // 1. Clear Hive boxes (account, location, orders)
               await box.clear();
               final ordersBox = Hive.box<Order>('orders');
               await ordersBox.clear();
+
+              // 2. Clear SharedPreferences (wishlist, theme)
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.clear();
+
               if (context.mounted) {
+                // 3. Reset in-memory providers
                 context.read<CartProvider>().clearCart();
-                Navigator.pushReplacement(context,
-                    CupertinoPageRoute(builder: (_) => const SignupPage()));
+                context.read<WishlistProvider>().clearAll();
+                context.read<OrderProvider>().clearAll();
+
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  CupertinoPageRoute(builder: (_) => const SignupPage()),
+                  (route) => false,
+                );
               }
             },
             child: const Text('Delete'),

@@ -7,6 +7,7 @@ import '../cart/cart_provider.dart';
 import '../core/database/location_service.dart';
 import '../models/food_item.dart';
 import '../providers/theme_provider.dart';
+import '../providers/wishlist_provider.dart';
 import 'food_data.dart' hide FoodItem, FoodCategory, FoodAddon, Restaurant;
 import 'food_detail_page.dart';
 
@@ -47,7 +48,6 @@ class FoodListPage extends StatefulWidget {
 
 class FoodListPageState extends State<FoodListPage> {
   int _selectedCategory = 0;
-  final Set<String> _wishlist = {};
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
@@ -337,15 +337,14 @@ class FoodListPageState extends State<FoodListPage> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final item   = items[index];
-                      final wished = _wishlist.contains(item.id);
+                      final wished = context.watch<WishlistProvider>().isWished(item.id);
                       return _FoodGridCard(
                         item: item,
                         wished: wished,
                         isDark: isDark,
                         categoryLabel: _categoryLabel(item.category),
-                        onWishToggle: () => setState(() => wished
-                            ? _wishlist.remove(item.id)
-                            : _wishlist.add(item.id)),
+                        onWishToggle: () =>
+                            context.read<WishlistProvider>().toggle(item.id),
                       );
                     },
                     childCount: items.length,

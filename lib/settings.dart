@@ -229,10 +229,6 @@ class _SettingsState extends State<Settings> {
                 header: const Text('DELIVERY'),
                 footer: const Padding(
                   padding: EdgeInsets.only(top: 6),
-                  child: Text(
-                    'Tap to open the map and pin your delivery address. '
-                    'This location will be used as the drop-off point.',
-                  ),
                 ),
                 children: [
                   _tiles(
@@ -268,11 +264,12 @@ class _SettingsState extends State<Settings> {
                               child: const Text('Sign Out'),
                               onPressed: () {
                                 Navigator.pop(ctx);
-                                Navigator.pushReplacement(
+                                Navigator.pushAndRemoveUntil(
                                   context,
                                   CupertinoPageRoute(
                                     builder: (_) => const LoginPage(),
                                   ),
+                                  (route) => false,
                                 );
                               },
                             ),

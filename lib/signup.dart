@@ -53,9 +53,10 @@ class _SignupPageState extends State<SignupPage> {
     box.put("password", password);
     box.put("biometrics", false);
     _password.text = "";
-    Navigator.push(
+    Navigator.pushAndRemoveUntil(
       context,
       CupertinoPageRoute(builder: (context) => LoginPage()),
+      (route) => false,
     );
   }
 

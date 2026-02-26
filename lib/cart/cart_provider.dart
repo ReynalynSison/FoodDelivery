@@ -22,7 +22,7 @@ class CartProvider extends ChangeNotifier {
 
   // ── Price ────────────────────────────────────────────────────────────────
 
-  static const double deliveryFee = 2.99;
+  static const double deliveryFee = 50;
 
   double get subtotal => _items.fold(0.0, (s, e) => s + e.lineTotal);
 

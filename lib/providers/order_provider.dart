@@ -116,6 +116,15 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears everything — called on full account reset.
+  void clearAll() {
+    for (final t in _confirmTimers.values) t?.cancel();
+    _confirmTimers.clear();
+    _activeOrders.clear();
+    _pendingRating.clear();
+    notifyListeners();
+  }
+
   // ── Internal ──────────────────────────────────────────────────────────────
   void _updateStatus(String orderId, OrderStatus newStatus) {
     final idx = _activeOrders.indexWhere((o) => o.id == orderId);
